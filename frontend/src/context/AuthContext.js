@@ -24,6 +24,17 @@ export const AuthProvider = ({ children }) => {
         return false;
     };
 
+    // Quick bypass for testing UI components without server constraints
+    const adminLogin = () => {
+        setUser({
+            _id: 'admin_123',
+            name: 'System Admin',
+            email: 'admin@university.edu',
+            role: 'Admin'
+        });
+        return true;
+    };
+
     const logout = () => {
         setUser(null);
         delete api.defaults.headers.common['Authorization'];
@@ -31,7 +42,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, setUser, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, setUser, loading, login, adminLogin, logout }}>
             {children}
         </AuthContext.Provider>
     );

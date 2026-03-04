@@ -53,6 +53,7 @@ const LoginScreen = ({ navigation }) => {
                     <TextInput
                         style={styles.input}
                         placeholder="student.name@university.edu"
+                        placeholderTextColor="#94A3B8"
                         keyboardType="email-address"
                         autoCapitalize="none"
                         value={email}
@@ -63,6 +64,7 @@ const LoginScreen = ({ navigation }) => {
                     <TextInput
                         style={styles.input}
                         placeholder="Enter your password"
+                        placeholderTextColor="#94A3B8"
                         secureTextEntry
                         value={password}
                         onChangeText={setPassword}
@@ -92,6 +94,11 @@ const LoginScreen = ({ navigation }) => {
                             <Text style={styles.registerLink}>Register Here</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {/* Stealth Admin Portal Entrance */}
+                    <TouchableOpacity onPress={() => navigation.navigate('AdminLogin')} style={styles.adminFooterLink}>
+                        <Text style={styles.adminLinkText}>System Administration Access</Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -107,135 +114,179 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     headerImagePlaceholder: {
-        height: 200,
-        backgroundColor: '#E6F0FA',
+        height: 240,
+        backgroundColor: '#EEF2FF', // Indigo 50
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
+        marginBottom: 20,
     },
     headerImageText: {
-        fontSize: 24,
-        color: '#CCC',
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#C7D2FE', // Indigo 200
+        letterSpacing: -1,
     },
     iconOverlay: {
         position: 'absolute',
-        bottom: -30,
+        bottom: -35,
         backgroundColor: '#FFF',
-        width: 70,
-        height: 70,
-        borderRadius: 15,
+        width: 76,
+        height: 76,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 5,
+        shadowColor: '#4F46E5', // Indigo 600
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: '#F1F5F9', // Slate 100
     },
     iconText: {
         fontSize: 35,
     },
     formContainer: {
         flex: 1,
-        paddingHorizontal: 25,
-        paddingTop: 50,
+        paddingHorizontal: 28,
+        paddingTop: 40,
         paddingBottom: 20,
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#1A1A1A',
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#0F172A', // Slate 900
         textAlign: 'center',
-        marginBottom: 10,
+        marginBottom: 8,
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 15,
+        color: '#64748B', // Slate 500
         textAlign: 'center',
-        marginBottom: 30,
+        marginBottom: 36,
+        fontWeight: '500',
     },
     errorText: {
-        color: 'red',
+        color: '#DC2626', // Red 600
         textAlign: 'center',
-        marginBottom: 10,
+        marginBottom: 16,
+        fontWeight: '600',
+        backgroundColor: '#FEF2F2',
+        paddingVertical: 10,
+        borderRadius: 12,
+        overflow: 'hidden',
     },
     label: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 5,
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1E293B', // Slate 800
+        marginBottom: 8,
     },
     input: {
-        height: 50,
+        height: 56,
         borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 15,
-        backgroundColor: '#FAFAFA',
+        borderColor: '#E2E8F0', // Slate 200
+        borderRadius: 16,
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        backgroundColor: '#F8FAFC', // Slate 50
+        fontSize: 15,
+        color: '#0F172A',
     },
     forgotBtn: {
         alignSelf: 'flex-end',
-        marginBottom: 20,
+        marginBottom: 28,
     },
     forgotText: {
-        color: '#0066FF',
-        fontSize: 12,
-        fontWeight: '500',
+        color: '#4F46E5', // Indigo 600
+        fontSize: 14,
+        fontWeight: '700',
     },
     loginBtn: {
-        backgroundColor: '#0066FF',
-        height: 50,
-        borderRadius: 8,
+        backgroundColor: '#4F46E5', // Indigo 600
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 36,
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
     },
     loginBtnText: {
         color: '#FFF',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#E0E0E0',
+        backgroundColor: '#E2E8F0', // Slate 200
     },
     dividerText: {
-        marginHorizontal: 10,
-        color: '#999',
+        marginHorizontal: 12,
+        color: '#94A3B8', // Slate 400
         fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1,
     },
     ssoBtn: {
-        height: 50,
+        height: 56,
         borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: 8,
+        borderColor: '#E2E8F0', // Slate 200
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 36,
+        backgroundColor: '#FFF',
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.02,
+        shadowRadius: 4,
+        elevation: 1,
     },
     ssoBtnText: {
-        color: '#333',
-        fontSize: 14,
-        fontWeight: '600',
+        color: '#0F172A', // Slate 900
+        fontSize: 15,
+        fontWeight: '700',
     },
     registerContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
+        marginBottom: 40,
     },
     registerText: {
-        color: '#666',
+        color: '#64748B', // Slate 500
+        fontSize: 15,
+        fontWeight: '500',
     },
     registerLink: {
-        color: '#0066FF',
-        fontWeight: 'bold',
+        color: '#4F46E5', // Indigo 600
+        fontWeight: '800',
+        fontSize: 15,
     },
+    adminFooterLink: {
+        alignItems: 'center',
+        paddingVertical: 10,
+    },
+    adminLinkText: {
+        color: '#CBD5E1', // Slate 300
+        fontSize: 12,
+        fontWeight: '600',
+        textDecorationLine: 'underline',
+    }
 });
 
 export default LoginScreen;

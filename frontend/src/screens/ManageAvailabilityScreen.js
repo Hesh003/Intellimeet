@@ -1,289 +1,295 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
-import api from '../services/api';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const ManageAvailabilityScreen = ({ navigation }) => {
-    const { user } = useContext(AuthContext);
-    const [slots, setSlots] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [recurring, setRecurring] = useState(true);
+    const [activeTab, setActiveTab] = useState('Calendar View');
 
-    // New slot form state
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // Simple YYYY-MM-DD
-    const [startTime, setStartTime] = useState('');
-    const [endTime, setEndTime] = useState('');
-    const [adding, setAdding] = useState(false);
+    // Mock data for UI alignment
+    const activeRules = [
+        { id: '1', days: 'Mon, Tue, Wed Morning', time: '09:00 AM - 12:00 PM' },
+        { id: '2', days: 'Friday Afternoon', time: '01:00 PM - 03:00 PM' }
+    ];
 
-    useEffect(() => {
-        fetchSlots();
-    }, []);
+    const renderCalendarGrid = () => {
+        return (
+            <View style={styles.calendarGrid}>
+                {/* Headers */}
+                <View style={styles.gridHeaderRow}>
+                    <View style={styles.timeAxisLabel} />
+                    {['MON\n18', 'TUE\n19', 'WED\n20', 'THU\n21', 'FRI\n22', 'SAT\n23', 'SUN\n24'].map((day, i) => (
+                        <View key={i} style={styles.dayColHeader}>
+                            <Text style={styles.dayColText}>{day}</Text>
+                        </View>
+                    ))}
+                </View>
 
-    const fetchSlots = async () => {
-        try {
-            const res = await api.get(`/availability/${user.id}`);
-            if (res.data.success) {
-                setSlots(res.data.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch availability:', err);
-        } finally {
-            setLoading(false);
-        }
+                {/* Grid Rows */}
+                {['08 AM', '10 AM', '12 PM', '02 PM', '04 PM'].map((time, rowIdx) => (
+                    <View key={rowIdx} style={styles.gridRow}>
+                        <Text style={styles.timeAxisLabelText}>{time}</Text>
+
+                        <View style={styles.gridCellsRow}>
+                            {[0, 1, 2, 3, 4, 5, 6].map((colIdx) => {
+                                // Mock some available slots
+                                const isAvailable =
+                                    (rowIdx === 1 && [0, 1, 3].includes(colIdx)) ||
+                                    (rowIdx === 3 && [1, 2, 4].includes(colIdx));
+
+                                return (
+                                    <View
+                                        key={colIdx}
+                                        style={[styles.gridCell, isAvailable && styles.gridCellActive]}
+                                    />
+                                );
+                            })}
+                        </View>
+                    </View>
+                ))}
+
+                {/* Lunch break marker overlay mock */}
+                <View style={styles.lunchBreakOverlay}>
+                    <Text style={styles.lunchBreakText}>LUNCH BREAK</Text>
+                </View>
+
+                <Text style={styles.dragHint}>Tap and drag on the grid to add availability</Text>
+            </View>
+        );
     };
 
-    const handleAddSlot = async () => {
-        if (!date || !startTime || !endTime) {
-            Alert.alert('Error', 'Please fill in date, start time, and end time.');
-            return;
-        }
+    const renderListRules = () => {
+        return (
+            <View style={styles.rulesList}>
+                <View style={styles.rulesHeader}>
+                    <Text style={styles.rulesHeaderTitle}>Active Availability Rules</Text>
+                </View>
+                {activeRules.map(rule => (
+                    <View key={rule.id} style={styles.ruleCard}>
+                        <View style={styles.ruleIconBox}>
+                            <Ionicons name="calendar-outline" size={20} color="#0066FF" />
+                        </View>
+                        <View style={styles.ruleInfo}>
+                            <Text style={styles.ruleDaysText}>{rule.days}</Text>
+                            <Text style={styles.ruleTimeText}>{rule.time}</Text>
+                        </View>
+                        <TouchableOpacity>
+                            <Ionicons name="ellipsis-vertical" size={20} color="#A0AEC0" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
 
-        setAdding(true);
-        try {
-            const res = await api.post('/availability', {
-                date,
-                startTime,
-                endTime
-            });
-            if (res.data.success) {
-                setSlots([...slots, res.data.data]);
-                setStartTime('');
-                setEndTime('');
-            }
-        } catch (err) {
-            Alert.alert('Error', err.response?.data?.error || 'Failed to add slot');
-        } finally {
-            setAdding(false);
-        }
-    };
-
-    const handleDeleteSlot = async (id) => {
-        try {
-            const res = await api.delete(`/availability/${id}`);
-            if (res.data.success) {
-                setSlots(slots.filter(slot => slot._id !== id));
-            }
-        } catch (err) {
-            Alert.alert('Error', err.response?.data?.error || 'Failed to delete slot');
-        }
+                <TouchableOpacity style={styles.addRuleBtn}>
+                    <Ionicons name="add" size={18} color="#0066FF" style={{ marginRight: 8 }} />
+                    <Text style={styles.addRuleBtnText}>Add New Rule</Text>
+                </TouchableOpacity>
+            </View>
+        );
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Text style={styles.backText}>{'< Back'}</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#1A202C" />
                 </TouchableOpacity>
-                <Text style={styles.title}>Manage Availability</Text>
-                <View style={{ width: 50 }} />
+                <Text style={styles.headerTitle}>Availability Manager</Text>
+                <TouchableOpacity>
+                    <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollArea}>
-                {/* Add New Slot Section */}
-                <View style={styles.formCard}>
-                    <Text style={styles.sectionTitle}>Add New Slot</Text>
-
-                    <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="2026-10-31"
-                    />
-
-                    <View style={styles.row}>
-                        <View style={styles.halfInput}>
-                            <Text style={styles.label}>Start Time</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={startTime}
-                                onChangeText={setStartTime}
-                                placeholder="09:00 AM"
-                            />
-                        </View>
-                        <View style={{ width: 15 }} />
-                        <View style={styles.halfInput}>
-                            <Text style={styles.label}>End Time</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={endTime}
-                                onChangeText={setEndTime}
-                                placeholder="10:00 AM"
-                            />
-                        </View>
+            <ScrollView contentContainerStyle={styles.container}>
+                <View style={styles.weekSelector}>
+                    <Text style={styles.weekLabel}>WEEK OF</Text>
+                    <View style={styles.weekControlRow}>
+                        <TouchableOpacity>
+                            <Ionicons name="chevron-back" size={20} color="#1A202C" />
+                        </TouchableOpacity>
+                        <Text style={styles.weekValue}>Sep 18 - Sep 24, 2023</Text>
+                        <TouchableOpacity>
+                            <Ionicons name="chevron-forward" size={20} color="#1A202C" />
+                        </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity style={styles.addBtn} onPress={handleAddSlot} disabled={adding}>
-                        <Text style={styles.addBtnText}>{adding ? 'Adding...' : 'Add Time Slot'}</Text>
-                    </TouchableOpacity>
                 </View>
 
-                {/* Existing Slots Section */}
-                <Text style={styles.sectionTitleMargin}>Your Current Slots</Text>
-                {loading ? (
-                    <ActivityIndicator size="small" color="#0066FF" />
-                ) : slots.length === 0 ? (
-                    <Text style={styles.emptyText}>You haven't added any availability yet.</Text>
-                ) : (
-                    slots.map(slot => (
-                        <View key={slot._id} style={styles.slotRow}>
-                            <View style={styles.slotInfo}>
-                                <Text style={styles.slotDate}>{new Date(slot.date).toLocaleDateString()}</Text>
-                                <Text style={styles.slotTime}>{slot.startTime} - {slot.endTime}</Text>
-                                {slot.isBooked && <Text style={styles.bookedBadge}>Booked</Text>}
-                            </View>
-
-                            <TouchableOpacity
-                                style={[styles.deleteBtn, slot.isBooked && styles.deleteBtnDisabled]}
-                                onPress={() => handleDeleteSlot(slot._id)}
-                                disabled={slot.isBooked}
-                            >
-                                <Text style={styles.deleteBtnText}>Delete</Text>
-                            </TouchableOpacity>
+                <View style={styles.recurringCard}>
+                    <View style={styles.recurringInfo}>
+                        <Ionicons name="repeat" size={24} color="#0066FF" style={{ marginRight: 10 }} />
+                        <View>
+                            <Text style={styles.recurringTitle}>Recurring Slots</Text>
+                            <Text style={styles.recurringSub}>Apply to all upcoming weeks</Text>
                         </View>
-                    ))
-                )}
+                    </View>
+                    <Switch
+                        value={recurring}
+                        onValueChange={setRecurring}
+                        trackColor={{ false: "#E2E8F0", true: "#0066FF" }}
+                        thumbColor="#FFF"
+                    />
+                </View>
+
+                <View style={styles.tabsContainer}>
+                    {['Calendar View', 'List Rules'].map(tab => (
+                        <TouchableOpacity
+                            key={tab}
+                            style={[styles.tab, activeTab === tab && styles.activeTab]}
+                            onPress={() => setActiveTab(tab)}
+                        >
+                            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {activeTab === 'Calendar View' ? renderCalendarGrid() : renderListRules()}
+
             </ScrollView>
-        </View>
+
+            {activeTab === 'List Rules' && (
+                <TouchableOpacity style={styles.fab}>
+                    <Ionicons name="add" size={30} color="#FFF" />
+                </TouchableOpacity>
+            )}
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F7F9FC',
-    },
+    safeArea: { flex: 1, backgroundColor: '#FCFCFD' },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 20,
-        paddingTop: 60,
-        backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#EFEFEF',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 15,
+        backgroundColor: '#FCFCFD',
     },
-    backBtn: {
-        padding: 10,
-        marginLeft: -10,
-    },
-    backText: {
-        color: '#0066FF',
-        fontSize: 16,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    scrollArea: {
-        padding: 20,
-    },
-    formCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1A1A1A',
-        marginBottom: 15,
-    },
-    sectionTitleMargin: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1A1A1A',
-        marginBottom: 15,
-        marginLeft: 5,
-    },
-    label: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 5,
-    },
-    input: {
-        height: 45,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 15,
-        backgroundColor: '#FAFAFA',
-    },
-    row: {
+    iconBtn: { padding: 5, marginLeft: -5 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A202C' },
+    saveBtnText: { color: '#0066FF', fontSize: 16, fontWeight: 'bold' },
+    container: { paddingBottom: 60, paddingHorizontal: 20 },
+    weekSelector: { alignItems: 'center', marginVertical: 20 },
+    weekLabel: { fontSize: 11, fontWeight: 'bold', color: '#A0AEC0', letterSpacing: 1, marginBottom: 8 },
+    weekControlRow: { flexDirection: 'row', alignItems: 'center' },
+    weekValue: { fontSize: 16, fontWeight: 'bold', color: '#1A202C', marginHorizontal: 20 },
+    recurringCard: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.02,
+        elevation: 1,
     },
-    halfInput: {
+    recurringInfo: { flexDirection: 'row', alignItems: 'center' },
+    recurringTitle: { fontSize: 15, fontWeight: 'bold', color: '#1A202C', marginBottom: 2 },
+    recurringSub: { fontSize: 12, color: '#718096' },
+    tabsContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#F7FAFC',
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 24,
+    },
+    tab: {
         flex: 1,
-    },
-    addBtn: {
-        backgroundColor: '#0066FF',
-        height: 45,
+        paddingVertical: 10,
+        alignItems: 'center',
         borderRadius: 8,
+    },
+    activeTab: { backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, elevation: 1 },
+    tabText: { fontSize: 14, fontWeight: '600', color: '#718096' },
+    activeTabText: { color: '#1A202C' },
+
+    // Calendar Grid Styles
+    calendarGrid: { marginBottom: 30, position: 'relative' },
+    gridHeaderRow: { flexDirection: 'row', marginBottom: 10, marginLeft: 20 },
+    timeAxisLabel: { width: 40 },
+    dayColHeader: { flex: 1, alignItems: 'center' },
+    dayColText: { textAlign: 'center', fontSize: 10, color: '#718096', fontWeight: 'bold', lineHeight: 14 },
+    gridRow: { flexDirection: 'row', alignItems: 'center', height: 40, marginBottom: 8 },
+    timeAxisLabelText: { width: 40, textAlign: 'right', paddingRight: 8, fontSize: 10, color: '#A0AEC0', fontWeight: '600' },
+    gridCellsRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
+    gridCell: { flex: 1, height: '100%', backgroundColor: '#F7FAFC', marginHorizontal: 2, borderRadius: 4, borderWidth: 1, borderColor: '#E2E8F0' },
+    gridCellActive: { backgroundColor: '#BEE3F8', borderColor: '#90CDF4' },
+    lunchBreakOverlay: {
+        position: 'absolute',
+        top: 140, // Mock position for 12 PM row
+        left: 50,
+        right: 0,
+        height: 20,
+        backgroundColor: '#F7FAFC',
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#E2E8F0',
+        borderStyle: 'dashed',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 5,
     },
-    addBtnText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    emptyText: {
-        color: '#999',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    slotRow: {
+    lunchBreakText: { fontSize: 10, color: '#A0AEC0', fontWeight: 'bold', letterSpacing: 1 },
+    dragHint: { textAlign: 'center', color: '#A0AEC0', fontSize: 12, marginTop: 20, fontStyle: 'italic' },
+
+    // List Rules Styles
+    rulesList: { paddingBottom: 30 },
+    rulesHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    rulesHeaderTitle: { fontSize: 16, fontWeight: 'bold', color: '#1A202C' },
+    ruleCard: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#FFF',
-        padding: 15,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    ruleIconBox: {
+        width: 40,
+        height: 40,
         borderRadius: 8,
-        marginBottom: 10,
-        borderLeftWidth: 4,
-        borderLeftColor: '#0066FF',
+        backgroundColor: '#EBF4FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
-    slotInfo: {
-        flex: 1,
+    ruleInfo: { flex: 1 },
+    ruleDaysText: { fontSize: 15, fontWeight: 'bold', color: '#1A202C', marginBottom: 4 },
+    ruleTimeText: { fontSize: 13, color: '#4A5568' },
+    addRuleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F7FAFC',
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: '#CBD5E0',
+        borderRadius: 12,
+        paddingVertical: 16,
+        marginTop: 10,
     },
-    slotDate: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 4,
-    },
-    slotTime: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    bookedBadge: {
-        marginTop: 5,
-        color: '#E02020',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    deleteBtn: {
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        backgroundColor: '#FFE5E5',
-        borderRadius: 6,
-    },
-    deleteBtnDisabled: {
-        backgroundColor: '#F0F0F0',
-    },
-    deleteBtnText: {
-        color: '#E02020',
-        fontWeight: '600',
-    },
+    addRuleBtnText: { color: '#0066FF', fontSize: 15, fontWeight: 'bold' },
+    fab: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#0066FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#0066FF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        elevation: 5,
+    }
 });
 
 export default ManageAvailabilityScreen;
