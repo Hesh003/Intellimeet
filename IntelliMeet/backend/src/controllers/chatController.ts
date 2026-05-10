@@ -283,7 +283,11 @@ async function executeAction(userId: string, role: string, reply: string): Promi
 // --- Main Chatbot Handler ---
 export const askChatbot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { query, history } = req.body;
+    const { query } = req.body;
+    let { history } = req.body;
+    if (typeof history === 'string') {
+      try { history = JSON.parse(history); } catch (e) { history = []; }
+    }
     const userRole = req.user?.role;
     const userId = req.user?.userId;
 
@@ -374,7 +378,20 @@ ${dbContext}
           },
         });
 
-        const result = await chat.sendMessage(systemPrompt + '\n\nUser: ' + query);
+        let messageParts: any[] = [
+          { text: systemPrompt + '\n\nUser: ' + query }
+        ];
+
+        if (req.file) {
+          messageParts.push({
+            inlineData: {
+              data: req.file.buffer.toString('base64'),
+              mimeType: req.file.mimetype
+            }
+          });
+        }
+
+        const result = await chat.sendMessage(messageParts);
         reply = result.response.text();
         success = true;
       } catch (aiError: any) {

@@ -92,14 +92,9 @@ export const getAvailabilities = async (req: AuthRequest, res: Response): Promis
     if (lecturerId) filter.lecturerId = lecturerId;
     if (date) filter.date = normalizeDate(date as string);
 
-    // If student is requesting, show ALL slots for their supervisor
-    if (req.user?.role === 'student') {
-      const student = await User.findById(req.user.userId);
-      if (student?.supervisorId) {
-        filter.lecturerId = student.supervisorId;
-      }
-      // Note: We don't filter by status='available' anymore because students need to see "Reserved" slots.
-    } else if (req.user?.role === 'lecturer') {
+    // Students should pass lecturerId to view that lecturer's slots.
+    // If lecturer is requesting, show their own slots.
+    if (req.user?.role === 'lecturer') {
       filter.lecturerId = req.user.userId;
     }
 
@@ -154,20 +149,45 @@ export const getAvailabilityStatus = async (req: AuthRequest, res: Response): Pr
 export const deleteAvailability = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const availability = await Availability.findById(id);
-
-    if (!availability) {
-      res.status(404).json({ message: 'Availability not found' });
+    
+    // Check if there are any meetings for this availability
+    const meetings = await Meeting.find({ availabilityId: id });
+    if (meetings.length > 0) {
+      res.status(400).json({ message: 'Cannot delete availability with scheduled meetings' });
       return;
     }
 
-    if (availability.lecturerId.toString() !== req.user?.userId) {
-      res.status(403).json({ message: 'Unauthorized' });
+    const deletedAvailability = await Availability.findOneAndDelete({ _id: id, lecturerId: req.user?.userId });
+    
+    if (!deletedAvailability) {
+      res.status(404).json({ message: 'Availability not found or unauthorized' });
       return;
     }
 
-    await Availability.findByIdAndDelete(id);
-    res.status(200).json({ message: 'Availability deleted' });
+    res.status(200).json({ message: 'Availability deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const blockDay = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { date } = req.body;
+    if (!date) {
+      res.status(400).json({ message: 'Date is required' });
+      return;
+    }
+    const targetDate = normalizeDate(date);
+    const lecturerId = req.user?.userId;
+
+    // Delete all "available" slots for this date
+    await Availability.deleteMany({
+      lecturerId,
+      date: targetDate,
+      status: 'available'
+    });
+
+    res.status(200).json({ message: 'Date blocked successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

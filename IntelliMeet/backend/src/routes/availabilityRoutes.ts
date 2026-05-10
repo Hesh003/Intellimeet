@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { createAvailability, getAvailabilities, deleteAvailability, getAvailabilityStatus } from '../controllers/availabilityController';
+import { createAvailability, getAvailabilities, deleteAvailability, getAvailabilityStatus, blockDay } from '../controllers/availabilityController';
 import { authenticate } from '../middleware/authMiddleware';
 
 const router = Router();
 
 router.post('/', authenticate, createAvailability);
+router.post('/block-day', authenticate, blockDay);
 router.get('/', authenticate, getAvailabilities);
 router.get('/status', authenticate, getAvailabilityStatus);
 router.delete('/:id', authenticate, deleteAvailability);

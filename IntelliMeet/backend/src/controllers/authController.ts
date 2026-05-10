@@ -7,10 +7,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_change_me';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role, batch, program, idNumber, supervisorId, title, faculty, department } = req.body;
+    const { name, email, password, role, batch, program, idNumber, title, faculty, department } = req.body;
 
-    if (role === 'student' && !supervisorId) {
-      res.status(400).json({ message: 'Students must select a supervisor' });
+    if (role === 'student' && !email.endsWith('@students.nsbm.ac.lk')) {
+      res.status(400).json({ message: 'Student email must end with @students.nsbm.ac.lk' });
+      return;
+    }
+
+    if (role === 'lecturer' && !email.endsWith('@nsbm.ac.lk')) {
+      res.status(400).json({ message: 'Lecturer email must end with @nsbm.ac.lk' });
       return;
     }
 
@@ -31,7 +36,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       batch,
       program,
       idNumber,
-      supervisorId,
       title,
       faculty,
       department
@@ -40,9 +44,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     await newUser.save();
 
     const token = jwt.sign({ userId: newUser._id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
-
-    // Populate supervisor for the response
-    const populatedUser = await User.findById(newUser._id).populate('supervisorId', 'name email idNumber isOnline profileImage title faculty');
 
     res.status(201).json({
       token,
@@ -54,7 +55,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         batch: newUser.batch,
         program: newUser.program,
         idNumber: newUser.idNumber,
-        supervisorId: (populatedUser as any).supervisorId,
         title: newUser.title,
         faculty: newUser.faculty,
         department: newUser.department
