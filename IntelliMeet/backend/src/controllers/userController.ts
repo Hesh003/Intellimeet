@@ -50,8 +50,12 @@ export const getAssignedStudents = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    const students = await User.find({ supervisorId: req.user.userId })
-      .select('name email idNumber batch program expoPushToken profileImage');
+    const filter = req.query.all === 'true' 
+      ? { role: 'student' } 
+      : { supervisorId: req.user.userId };
+
+    const students = await User.find(filter)
+      .select('name email idNumber batch program expoPushToken profileImage supervisorId');
 
     const studentsWithCounts = await Promise.all(students.map(async (student) => {
       const totalMeetings = await Meeting.countDocuments({ 
@@ -86,6 +90,8 @@ export const editProfile = async (req: AuthRequest, res: Response): Promise<void
     if (req.body.profileImage !== undefined) user.profileImage = req.body.profileImage;
     if (req.body.title) user.title = req.body.title;
     if (req.body.faculty) user.faculty = req.body.faculty;
+    if (req.body.expertise !== undefined) user.expertise = req.body.expertise;
+    if (req.body.bookingLeadTimeDays !== undefined) user.bookingLeadTimeDays = req.body.bookingLeadTimeDays;
 
     await user.save();
     
@@ -103,7 +109,9 @@ export const editProfile = async (req: AuthRequest, res: Response): Promise<void
       supervisorId: (populatedUser as any).supervisorId,
       profileImage: user.profileImage,
       title: user.title,
-      faculty: user.faculty
+      faculty: user.faculty,
+      expertise: user.expertise,
+      bookingLeadTimeDays: user.bookingLeadTimeDays
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

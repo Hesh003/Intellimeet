@@ -2,6 +2,7 @@ import { Response } from 'express';
 import Meeting from '../models/Meeting';
 import Availability from '../models/Availability';
 import Notification from '../models/Notification';
+import User from '../models/User';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { sendPushNotification } from '../services/pushNotificationService';
 
@@ -12,7 +13,49 @@ export const bookMeeting = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const { availabilityId, notes } = req.body;
+    const { availabilityId, notes, startTime, endTime, requirement } = req.body;
+
+    const REQUIREMENT_DURATIONS: Record<string, number> = {
+      'Coursework clarification': 15,
+      'Lesson/module clarification': 15,
+      'Project discussion (group projects, research, capstone projects)': 40,
+      'Final year project supervision meeting': 60,
+      'Exam discussion (marks clarification, paper discussion, re-correction inquiries)': 15,
+      'Other academic matters': 35
+    };
+
+    // Requirement is optional — if not provided, skip duration validation
+    const maxDuration: number | undefined = requirement ? REQUIREMENT_DURATIONS[requirement] : undefined;
+    if (requirement && maxDuration === undefined) {
+      res.status(400).json({ message: 'Invalid requirement' });
+      return;
+    }
+
+    // Only validate time bounds if student provided explicit times
+    let reqStartMins: number | undefined;
+    let reqEndMins: number | undefined;
+
+    if (startTime && endTime) {
+      const [reqStartH, reqStartM] = startTime.split(':').map(Number);
+      const [reqEndH, reqEndM] = endTime.split(':').map(Number);
+      const rStart = reqStartH * 60 + reqStartM;
+      const rEnd = reqEndH * 60 + reqEndM;
+      reqStartMins = rStart;
+      reqEndMins = rEnd;
+
+      if (rStart >= rEnd) {
+        res.status(400).json({ message: 'End time must be after start time' });
+        return;
+      }
+
+      if (maxDuration !== undefined) {
+        const requestedDuration = rEnd - rStart;
+        if (requestedDuration > maxDuration) {
+          res.status(400).json({ message: `This specific reason allows a maximum of ${maxDuration} minutes.` });
+          return;
+        }
+      }
+    }
 
     const availability = await Availability.findById(availabilityId);
     if (!availability) {
@@ -20,7 +63,14 @@ export const bookMeeting = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // NEW: Check if student already has a meeting on this day
+    const slotDate = new Date(availability.date);
+    const timeParts = availability.startTime.split(':');
+    slotDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
+    if (slotDate < new Date()) {
+      res.status(400).json({ message: 'Cannot book a meeting for a slot that has already passed' });
+      return;
+    }
+
     const dayAvailabilities = await Availability.find({ date: availability.date });
     const dayAvailabilityIds = dayAvailabilities.map(a => a._id);
 
@@ -35,7 +85,6 @@ export const bookMeeting = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Check capacity
     const currentBookings = await Meeting.countDocuments({ 
       availabilityId, 
       status: { $in: ['pending', 'confirmed', 'completed'] } 
@@ -46,21 +95,75 @@ export const bookMeeting = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    const lecturer = await User.findById(availability.lecturerId);
+    const leadTimeDays = lecturer?.bookingLeadTimeDays ?? 0;
+    
+    // Only enforce lead time if the lecturer has configured it (> 0)
+    if (leadTimeDays > 0) {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      const meetingDate = new Date(availability.date);
+      const diffTime = meetingDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < leadTimeDays) {
+        res.status(400).json({ message: `Bookings for this lecturer must be made at least ${leadTimeDays} days in advance.` });
+        return;
+      }
+    }
+
+    // Only validate block boundaries and overlaps if times were provided
+    if (reqStartMins !== undefined && reqEndMins !== undefined) {
+      const rStart = reqStartMins;
+      const rEnd = reqEndMins;
+      const [blockStartH, blockStartM] = availability.startTime.split(':').map(Number);
+      const [blockEndH, blockEndM] = availability.endTime.split(':').map(Number);
+      const blockStartMins = blockStartH * 60 + blockStartM;
+      const blockEndMins = blockEndH * 60 + blockEndM;
+
+      if (rStart < blockStartMins || rEnd > blockEndMins) {
+        res.status(400).json({ message: 'Requested time is outside the availability block' });
+        return;
+      }
+
+      const existingMeetings = await Meeting.find({
+        availabilityId,
+        status: { $in: ['pending', 'confirmed', 'completed'] }
+      });
+
+      for (const em of existingMeetings) {
+        if (!em.startTime || !em.endTime) continue;
+        const [emStartH, emStartM] = em.startTime.split(':').map(Number);
+        const [emEndH, emEndM] = em.endTime.split(':').map(Number);
+        const emStartMins = emStartH * 60 + emStartM;
+        const emEndMins = emEndH * 60 + emEndM;
+
+        if (rStart < emEndMins && rEnd > emStartMins) {
+          res.status(400).json({ message: 'Requested time overlaps with an existing meeting' });
+          return;
+        }
+      }
+    }
+
     const newMeeting = new Meeting({
       studentId: req.user.userId,
       lecturerId: availability.lecturerId,
       availabilityId,
       notes,
+      requirement: requirement || 'Other academic matters',
+      startTime: startTime || availability.startTime,
+      endTime: endTime || availability.endTime,
       status: 'pending'
     });
 
     await newMeeting.save();
 
-    // If full now, mark slot as booked
-    if (currentBookings + 1 >= (availability.maxStudents || 1)) {
-      availability.status = 'booked';
-      await availability.save();
-    }
+    const pushNotes = notes ? `\nContext: ${notes}` : '';
+    await sendPushNotification(
+      availability.lecturerId.toString(),
+      'New Meeting Request',
+      `You have a new meeting request for ${availability.date.toLocaleDateString()} at ${startTime}.${pushNotes}`
+    );
 
     res.status(201).json(newMeeting);
   } catch (error) {
@@ -88,7 +191,7 @@ export const getMeetings = async (req: AuthRequest, res: Response): Promise<void
 
     const meetings = await Meeting.find(filter)
       .populate('studentId', 'name email batch')
-      .populate('lecturerId', 'name email department')
+      .populate('lecturerId', 'name email department profileImage isOnline title faculty idNumber')
       .populate('availabilityId', 'date startTime endTime');
 
     res.status(200).json(meetings);
@@ -125,15 +228,40 @@ export const updateMeetingStatus = async (req: AuthRequest, res: Response): Prom
        }
     }
 
+    // NEW: Check if slot has already passed when accepting/confirming
+    if (status !== 'cancelled') {
+      const availability = await Availability.findById(meeting.availabilityId);
+      if (availability) {
+        const slotDate = new Date(availability.date);
+        const timeParts = availability.startTime.split(':');
+        slotDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
+        if (slotDate < new Date()) {
+          res.status(400).json({ message: 'Cannot update status for a slot that has already passed' });
+          return;
+        }
+      }
+    }
+
     meeting.status = status;
     if (meetingLink) meeting.meetingLink = meetingLink;
 
-    await meeting.save();
+    await meeting.save({ validateModifiedOnly: true });
 
     // If cancelled, free up availability
     if (status === 'cancelled') {
       await Availability.findByIdAndUpdate(meeting.availabilityId, { status: 'available' });
     }
+
+    // Push notification to the other party
+    const isStudent = req.user?.role === 'student';
+    const targetUserId = isStudent ? meeting.lecturerId.toString() : meeting.studentId.toString();
+    const updaterRole = isStudent ? 'Student' : 'Lecturer';
+    
+    await sendPushNotification(
+      targetUserId,
+      `Meeting ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      `The ${updaterRole.toLowerCase()} has updated the meeting status to ${status}.`
+    );
 
     res.status(200).json(meeting);
   } catch (error) {
@@ -153,6 +281,15 @@ export const manualAssignMeeting = async (req: AuthRequest, res: Response): Prom
     const availability = await Availability.findById(availabilityId);
     if (!availability) {
       res.status(404).json({ message: 'Slot not found' });
+      return;
+    }
+
+    // NEW: Check if slot has already passed
+    const slotDate = new Date(availability.date);
+    const timeParts = availability.startTime.split(':');
+    slotDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
+    if (slotDate < new Date()) {
+      res.status(400).json({ message: 'Cannot manually assign a meeting to a slot that has already passed' });
       return;
     }
 
@@ -187,6 +324,9 @@ export const manualAssignMeeting = async (req: AuthRequest, res: Response): Prom
       lecturerId: req.user.userId,
       availabilityId,
       notes: notes || 'Manually assigned by lecturer',
+      startTime: req.body.startTime || availability.startTime,
+      endTime: req.body.endTime || availability.endTime,
+      requirement: req.body.requirement || 'Other academic matters',
       status: 'confirmed'
     });
 
@@ -312,6 +452,12 @@ export const directCreateMeeting = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
+    // NEW: Check if the slot date is in the past
+    if (parsedDate < new Date()) {
+      res.status(400).json({ message: 'Cannot create a meeting for a date that has already passed' });
+      return;
+    }
+
     // 1. Create a "ghost" availability slot
     const normalizedDate = new Date(date);
     normalizedDate.setUTCHours(0, 0, 0, 0);
@@ -333,6 +479,9 @@ export const directCreateMeeting = async (req: AuthRequest, res: Response): Prom
       lecturerId: req.user.userId,
       availabilityId: newAvailability._id,
       notes: notes || 'Directly scheduled by lecturer',
+      startTime,
+      endTime,
+      requirement: req.body.requirement || 'Other academic matters',
       status: 'confirmed'
     });
 

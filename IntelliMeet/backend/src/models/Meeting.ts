@@ -5,6 +5,9 @@ export interface IMeeting extends Document {
   lecturerId: mongoose.Types.ObjectId;
   availabilityId: mongoose.Types.ObjectId;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'uncompleted';
+  startTime: string;
+  endTime: string;
+  requirement: string;
   meetingLink?: string;
   notes?: string;
   clearedByStudent?: boolean;
@@ -17,6 +20,9 @@ const MeetingSchema: Schema = new Schema({
   lecturerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   availabilityId: { type: Schema.Types.ObjectId, ref: 'Availability', required: true },
   status: { type: String, enum: ['pending', 'confirmed', 'completed', 'cancelled', 'uncompleted'], default: 'pending' },
+  startTime: { type: String },
+  endTime: { type: String },
+  requirement: { type: String },
   meetingLink: { type: String },
   notes: { type: String },
   clearedByStudent: { type: Boolean, default: false },

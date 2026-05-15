@@ -12,6 +12,8 @@ export interface IUser extends Document {
   title?: string;
   faculty?: string;
   department?: string;
+  expertise?: string;
+  bookingLeadTimeDays?: number;
   profileImage?: string;
   isOnline?: boolean;
   expoPushToken?: string;
@@ -30,6 +32,8 @@ const UserSchema: Schema = new Schema({
   title: { type: String }, // Mr, Ms, Dr, Prof
   faculty: { type: String },
   department: { type: String },
+  expertise: { type: String },
+  bookingLeadTimeDays: { type: Number, default: 7 },
   profileImage: { type: String },
   isOnline: { type: Boolean, default: false },
   expoPushToken: { type: String },

@@ -114,7 +114,7 @@ export const getSupervisors = async (req: Request, res: Response): Promise<void>
     let filter: any = { role: 'lecturer' };
     if (faculty) filter.faculty = faculty;
 
-    const supervisors = await User.find(filter).select('name email idNumber isOnline faculty title');
+    const supervisors = await User.find(filter).select('name email idNumber isOnline faculty title bookingLeadTimeDays');
     res.status(200).json(supervisors);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
