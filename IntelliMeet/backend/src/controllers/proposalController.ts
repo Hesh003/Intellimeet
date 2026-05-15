@@ -11,7 +11,7 @@ export const submitProposal = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { title, content } = req.body;
+    const { title, content, supervisorId } = req.body;
     let documentUrl;
 
     if (req.file) {
@@ -20,6 +20,7 @@ export const submitProposal = async (req: AuthRequest, res: Response): Promise<v
 
     const newProposal = new Proposal({
       studentId: req.user.userId,
+      supervisorId: supervisorId || undefined,
       title,
       content,
       documentUrl,
@@ -27,13 +28,14 @@ export const submitProposal = async (req: AuthRequest, res: Response): Promise<v
 
     await newProposal.save();
     
-    // Notify the bound supervisor
+    // Notify supervisor: use form-selected supervisorId first, fall back to student's assigned supervisor
     const student = await User.findById(req.user.userId);
-    if (student?.supervisorId) {
+    const notifyId = supervisorId || student?.supervisorId;
+    if (notifyId) {
       const notif = new Notification({
-        userId: student.supervisorId,
+        userId: notifyId,
         title: 'New Proposal Submitted',
-        message: `${student.name} has submitted a new proposal: ${title}`
+        message: `${student?.name} has submitted a new proposal: ${title}`
       });
       await notif.save();
     }
